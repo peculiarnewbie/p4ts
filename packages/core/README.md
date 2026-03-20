@@ -6,7 +6,29 @@ Typed TypeScript helpers for the Perforce `p4` CLI.
 - Parse classic tagged output and newline-delimited JSON
 - Query current Perforce environment with sensible fallbacks
 - List and filter workspaces that are relevant to the local machine
+- Provide a foundation for read-only changelist/status tooling and sync workflows
 - Preserve an Effect-based API that is easy to extract from `electroswag`
+
+## Scope
+
+This package is intended for read-only P4 workflows plus `sync`.
+
+In scope:
+- Inspect current environment and workspace state
+- List relevant workspaces for the current machine
+- Inspect pending changelists and opened files
+- Preview reconcile and sync operations
+- Perform `sync` to update the local workspace
+- Read file metadata and depot/local path mappings
+
+Out of scope:
+- `submit`
+- `shelve` or `unshelve`
+- `edit`, `add`, `delete`, or other checkout/open-for-edit commands
+- `revert`, `lock`, `unlock`, `move`, `integrate`, or `resolve`
+- Changelist creation or mutation
+- Client or stream spec mutation
+- Server administration or other server-mutating workflows
 
 ## Install
 
@@ -24,6 +46,9 @@ const p4 = new P4Client();
 const environment = await p4.getEnvironment();
 const workspaces = await p4.listWorkspaces();
 const opened = await p4.run(["opened"]);
+
+// future additions are expected to stay within read-only plus sync workflows,
+// for example changelist inspection, reconcile preview, and sync preview
 ```
 
 ## Electroswag Extraction Path
