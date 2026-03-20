@@ -28,6 +28,7 @@ Out of scope:
 | Package | Description | Status |
 |---------|-------------|--------|
 | [`packages/core`](./packages/core) | Runtime library for running and parsing `p4` commands | Available |
+| [`packages/test-stream`](./packages/test-stream) | Canonical fixture stream content for future end-to-end testing | Available |
 
 ## Development
 

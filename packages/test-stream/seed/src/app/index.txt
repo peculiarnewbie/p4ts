@@ -1,0 +1,2 @@
+P4 test stream fixture
+This file exists so sync and opened-file flows have a stable text file to target.

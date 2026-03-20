@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import {
   isLocalWorkspace,
+  normalizeNullableNumber,
+  normalizeNullableString,
+  normalizeP4Change,
   parseP4JsonLines,
   parseP4KeyValueOutput,
   unixSecondsToIsoString
@@ -85,5 +88,37 @@ describe("unixSecondsToIsoString", () => {
   it("returns null for missing or invalid values", () => {
     expect(unixSecondsToIsoString(null)).toBeNull();
     expect(unixSecondsToIsoString("not-a-number")).toBeNull();
+  });
+});
+
+describe("normalizeNullableString", () => {
+  it("returns trimmed strings and null for empty values", () => {
+    expect(normalizeNullableString("  hello  ")).toBe("hello");
+    expect(normalizeNullableString("   ")).toBeNull();
+    expect(normalizeNullableString(undefined)).toBeNull();
+  });
+});
+
+describe("normalizeNullableNumber", () => {
+  it("parses finite numeric values", () => {
+    expect(normalizeNullableNumber("123")).toBe(123);
+    expect(normalizeNullableNumber(42)).toBe(42);
+  });
+
+  it("returns null for invalid values", () => {
+    expect(normalizeNullableNumber("abc")).toBeNull();
+    expect(normalizeNullableNumber(undefined)).toBeNull();
+  });
+});
+
+describe("normalizeP4Change", () => {
+  it("handles default and numbered changelists", () => {
+    expect(normalizeP4Change("default")).toBe("default");
+    expect(normalizeP4Change("12345")).toBe(12345);
+  });
+
+  it("returns null for missing or invalid values", () => {
+    expect(normalizeP4Change(undefined)).toBeNull();
+    expect(normalizeP4Change("not-a-change")).toBeNull();
   });
 });

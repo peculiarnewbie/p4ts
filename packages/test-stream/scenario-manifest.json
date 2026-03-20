@@ -1,0 +1,39 @@
+{
+  "baseline": {
+    "description": "Fresh workspace synced to the seeded stream with no local changes",
+    "expectations": [
+      "listPendingChangelists returns an empty list or only the default changelist when explicitly populated",
+      "getOpenedFiles returns an empty list",
+      "previewReconcile returns no add/edit/delete candidates",
+      "previewSync returns no pending items after the initial sync"
+    ]
+  },
+  "reconcile_preview": {
+    "description": "Local workspace mutations used to verify reconcile preview parsing",
+    "localChanges": [
+      "modify seed/src/app/config.json",
+      "delete seed/docs/guide/getting-started.md from the workspace copy",
+      "add a new untracked file at seed/src/app/new-feature.txt"
+    ],
+    "expectations": [
+      "previewReconcile.edited contains config.json",
+      "previewReconcile.deleted contains getting-started.md",
+      "previewReconcile.added contains new-feature.txt"
+    ]
+  },
+  "opened_files": {
+    "description": "Workspace with files already opened in numbered and default changelists",
+    "expectations": [
+      "listPendingChangelists returns numbered changelists and optionally the default changelist",
+      "getOpenedFiles returns a flat list with changelist metadata",
+      "getChangelistFiles returns only the files for the requested changelist"
+    ]
+  },
+  "sync_preview": {
+    "description": "Workspace behind the server head revision to verify sync preview parsing",
+    "expectations": [
+      "previewSync returns one item per pending file update",
+      "previewSync.totalCount matches the number of returned items"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "stream": {
+    "name": "//p4ts/main",
+    "type": "mainline",
+    "owner": "p4ts-e2e",
+    "description": "Fixture stream used for p4-ts end-to-end tests"
+  },
+  "workspace": {
+    "suggestedClientPrefix": "p4ts_e2e",
+    "rootFolderName": "p4ts-main"
+  },
+  "seedRoot": "seed"
+}

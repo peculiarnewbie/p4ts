@@ -1,0 +1,16 @@
+{
+  "name": "@p4-ts/test-stream",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Canonical test stream fixture content for p4-ts end-to-end testing",
+  "type": "module",
+  "files": [
+    "README.md",
+    "stream-manifest.json",
+    "scenario-manifest.json",
+    "seed"
+  ],
+  "scripts": {
+    "check": "echo test-stream fixture package"
+  }
+}

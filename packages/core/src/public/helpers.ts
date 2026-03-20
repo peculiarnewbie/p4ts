@@ -25,6 +25,38 @@ export function parseP4JsonLines<T = Record<string, unknown>>(output: string): T
     .map((line) => JSON.parse(line) as T);
 }
 
+export function normalizeNullableString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function normalizeNullableNumber(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function normalizeP4Change(value: unknown): number | "default" | null {
+  const normalized = normalizeNullableString(value);
+  if (!normalized) return null;
+  if (normalized === "default") return "default";
+
+  const parsed = normalizeNullableNumber(normalized);
+  if (parsed === null) return null;
+
+  return Math.trunc(parsed);
+}
+
 export function isLocalWorkspace(
   workspace: LocalWorkspaceCandidate,
   hostName: string,

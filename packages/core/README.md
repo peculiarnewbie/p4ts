@@ -6,7 +6,7 @@ Typed TypeScript helpers for the Perforce `p4` CLI.
 - Parse classic tagged output and newline-delimited JSON
 - Query current Perforce environment with sensible fallbacks
 - List and filter workspaces that are relevant to the local machine
-- Provide a foundation for read-only changelist/status tooling and sync workflows
+- Provide read-only plus preview-sync helpers for custom P4 tooling
 - Preserve an Effect-based API that is easy to extract from `electroswag`
 
 ## Scope
@@ -18,7 +18,6 @@ In scope:
 - List relevant workspaces for the current machine
 - Inspect pending changelists and opened files
 - Preview reconcile and sync operations
-- Perform `sync` to update the local workspace
 - Read file metadata and depot/local path mappings
 
 Out of scope:
@@ -29,6 +28,9 @@ Out of scope:
 - Changelist creation or mutation
 - Client or stream spec mutation
 - Server administration or other server-mutating workflows
+
+Planned next:
+- Actual `sync()` support within the same non-mutating-server boundary
 
 ## Install
 
@@ -45,10 +47,14 @@ const p4 = new P4Client();
 
 const environment = await p4.getEnvironment();
 const workspaces = await p4.listWorkspaces();
-const opened = await p4.run(["opened"]);
-
-// future additions are expected to stay within read-only plus sync workflows,
-// for example changelist inspection, reconcile preview, and sync preview
+const pending = await p4.listPendingChangelists();
+const opened = await p4.getOpenedFiles({ change: "default" });
+const reconcilePreview = await p4.previewReconcile({
+  fileSpec: "C:/work/project/..."
+});
+const syncPreview = await p4.previewSync({
+  fileSpec: "//Project/main/..."
+});
 ```
 
 ## Electroswag Extraction Path
@@ -57,10 +63,19 @@ If you want a near-direct move from the current `electroswag` code, the package 
 
 ```ts
 import { Effect } from "effect";
-import { getP4Environment, listP4Workspaces } from "p4-ts";
+import {
+  getOpenedFiles,
+  getP4Environment,
+  listP4Workspaces,
+  previewReconcile
+} from "p4-ts";
 
 const environment = await Effect.runPromise(getP4Environment(false));
 const workspaces = await Effect.runPromise(listP4Workspaces(false));
+const opened = await Effect.runPromise(getOpenedFiles({ change: "default" }));
+const reconcilePreview = await Effect.runPromise(
+  previewReconcile({ fileSpec: "C:/work/project/..." })
+);
 ```
 
 ## API
@@ -108,6 +123,50 @@ List user workspaces and, by default, keep only workspaces that appear local to 
 
 ```ts
 const workspaces = await p4.listWorkspaces();
+```
+
+### `listPendingChangelists(options?)`
+
+List pending changelists for a user or client without mutating server-side state.
+
+```ts
+const pending = await p4.listPendingChangelists();
+```
+
+### `getOpenedFiles(options?)`
+
+List opened files as a flat typed array. Callers can group by changelist in the UI.
+
+```ts
+const opened = await p4.getOpenedFiles({ change: "default" });
+```
+
+### `getChangelistFiles(change, options?)`
+
+Shortcut for querying the files in a specific changelist.
+
+```ts
+const files = await p4.getChangelistFiles(12345);
+```
+
+### `previewReconcile(options?)`
+
+Preview reconcile results using `p4 reconcile -n`.
+
+```ts
+const preview = await p4.previewReconcile({
+  fileSpec: "C:/work/project/..."
+});
+```
+
+### `previewSync(options?)`
+
+Preview sync results using `p4 sync -n`.
+
+```ts
+const preview = await p4.previewSync({
+  fileSpec: "//Project/main/..."
+});
 ```
 
 ## Development

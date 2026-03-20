@@ -1,0 +1,8 @@
+{
+  "name": "p4-ts-fixture",
+  "environment": "test",
+  "features": {
+    "reconcilePreview": true,
+    "syncPreview": true
+  }
+}
