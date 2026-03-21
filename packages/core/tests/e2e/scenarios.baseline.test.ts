@@ -1,0 +1,75 @@
+import { beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import { loadE2EConfig } from "./config.js";
+import { loadFixture, validateFixtureMetadata } from "./fixture.js";
+import { P4E2EHarness } from "./harness.js";
+
+const state = loadE2EConfig();
+const baselineDescribe = describe.skipIf(!state.enabled);
+
+baselineDescribe("p4-ts e2e baseline", () => {
+  if (!state.enabled) {
+    return;
+  }
+
+  const fixture = loadFixture(state.config);
+  const harness = new P4E2EHarness(state.config, fixture);
+
+  beforeAll(async () => {
+    validateFixtureMetadata(state.config, fixture);
+    await harness.validateProvisionedFixture();
+  });
+
+  beforeEach(async () => {
+    await harness.cleanupWorkspace();
+    await harness.assertCleanWorkspace();
+  });
+
+  it("resolves the configured p4 environment", async () => {
+    const environment = await harness.client.getEnvironment({ refresh: true });
+
+    expect(environment.p4Client).toBe(state.config.client);
+    expect(environment.hostName.length).toBeGreaterThan(0);
+
+    if (state.config.user) {
+      expect(environment.p4User).toBe(state.config.user);
+    }
+    if (state.config.p4Port) {
+      expect(environment.p4Port).toBe(state.config.p4Port);
+    }
+  });
+
+  it("lists the configured workspace as current", async () => {
+    const workspaces = await harness.client.listWorkspaces({ refresh: true });
+    const workspace = workspaces.find((entry) => entry.client === state.config.client);
+
+    expect(workspace).toBeDefined();
+    expect(workspace?.isCurrentClient).toBe(true);
+    expect(workspace?.stream).toBe(state.config.stream);
+    expect(workspace?.root).toBe(state.config.workspaceRoot);
+  });
+
+  it("has no reconcile candidates or opened files after cleanup", async () => {
+    const reconcilePreview = await harness.client.previewReconcile({ fileSpec: "..." });
+    const openedFiles = await harness.client.getOpenedFiles();
+
+    expect(reconcilePreview).toEqual({
+      added: [],
+      edited: [],
+      deleted: []
+    });
+    expect(openedFiles).toEqual([]);
+  });
+
+  it("returns either no pending changelists or only default", async () => {
+    const pending = await harness.client.listPendingChangelists({ includeDefault: true });
+
+    expect(pending.every((entry) => entry.isDefault)).toBe(true);
+  });
+
+  it("has no pending sync items after syncing to head", async () => {
+    const preview = await harness.previewSync();
+
+    expect(preview.items).toEqual([]);
+    expect(preview.totalCount).toBe(0);
+  });
+});

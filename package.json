@@ -10,6 +10,7 @@
     "build": "bun run --cwd packages/core build",
     "typecheck": "bun run --cwd packages/core typecheck",
     "test": "bun run --cwd packages/core test",
+    "test:e2e": "bun run --cwd packages/core test:e2e",
     "clean": "bun run --cwd packages/core clean",
     "pack:core": "bun run --cwd packages/core pack:check"
   },
