@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { createP4Service } from "../src/public/service.js";
 
 describe("createP4Service", () => {
-  it("exposes Effect-based wrappers for electroswag-style extraction", async () => {
+  it("exposes Effect-based wrappers for service-oriented usage", async () => {
     const service = createP4Service({
       executor: async (command, args) => {
         if (args[0] === "info") {

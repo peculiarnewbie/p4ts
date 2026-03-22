@@ -7,7 +7,7 @@ Typed TypeScript helpers for the Perforce `p4` CLI.
 - Query current Perforce environment with sensible fallbacks
 - List and filter workspaces that are relevant to the local machine
 - Provide read-only plus preview-sync helpers for custom P4 tooling
-- Preserve an Effect-based API that is easy to extract from `electroswag`
+- Optional [Effect](https://effect.website)-based service API
 
 ## Scope
 
@@ -55,27 +55,6 @@ const reconcilePreview = await p4.previewReconcile({
 const syncPreview = await p4.previewSync({
   fileSpec: "//Project/main/..."
 });
-```
-
-## Electroswag Extraction Path
-
-If you want a near-direct move from the current `electroswag` code, the package also exports the same service-oriented entry points:
-
-```ts
-import { Effect } from "effect";
-import {
-  getOpenedFiles,
-  getP4Environment,
-  listP4Workspaces,
-  previewReconcile
-} from "p4-ts";
-
-const environment = await Effect.runPromise(getP4Environment(false));
-const workspaces = await Effect.runPromise(listP4Workspaces(false));
-const opened = await Effect.runPromise(getOpenedFiles({ change: "default" }));
-const reconcilePreview = await Effect.runPromise(
-  previewReconcile({ fileSpec: "C:/work/project/..." })
-);
 ```
 
 ## API
@@ -167,6 +146,22 @@ Preview sync results using `p4 sync -n`.
 const preview = await p4.previewSync({
   fileSpec: "//Project/main/..."
 });
+```
+
+## Effect Service API
+
+For [Effect](https://effect.website)-based codebases, `createP4Service` returns the same operations as `P4Client` wrapped in `Effect`:
+
+```ts
+import { Effect } from "effect";
+import { createP4Service } from "p4-ts";
+
+const p4 = createP4Service();
+
+const environment = await Effect.runPromise(p4.getP4Environment());
+const workspaces = await Effect.runPromise(p4.listP4Workspaces());
+const opened = await Effect.runPromise(p4.getOpenedFiles({ change: "default" }));
+const reconcilePreview = await Effect.runPromise(p4.previewReconcile());
 ```
 
 ## Development

@@ -1,5 +1,5 @@
 {
-  "name": "p4-ts",
+  "name": "p4client-ts",
   "version": "0.1.0",
   "description": "Typed TypeScript helpers for the Perforce p4 CLI",
   "license": "MIT",

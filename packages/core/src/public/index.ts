@@ -1,5 +1,6 @@
 export { P4Client } from "./client.js";
-export { P4CommandError } from "./errors.js";
+export { P4CommandError, classifyP4Error } from "./errors.js";
+export type { P4ErrorCategory } from "./errors.js";
 export {
   createP4Service,
   getChangelistFiles,
