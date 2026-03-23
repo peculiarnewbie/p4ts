@@ -9,7 +9,8 @@ export {
   listPendingChangelists,
   listP4Workspaces,
   previewReconcile,
-  previewSync
+  previewSync,
+  sync
 } from "./service.js";
 export {
   isLocalWorkspace,
@@ -38,10 +39,13 @@ export type {
   P4ReconcilePreviewResult,
   P4ClientOptions,
   P4Service,
+  P4SyncItem,
+  P4SyncResult,
   P4SyncPreviewItem,
   P4SyncPreviewResult,
   P4WorkspaceSummary,
   PreviewReconcileOptions,
   PreviewSyncOptions,
+  SyncOptions,
   RunTaggedJsonOptions
 } from "./types.js";

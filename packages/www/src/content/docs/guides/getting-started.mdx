@@ -11,7 +11,7 @@ npm install p4client-ts
 
 ## Create a Client
 
-`P4Client` wraps the `p4` executable and exposes typed helper methods for common read-only and preview workflows.
+`P4Client` wraps the `p4` executable and exposes typed helper methods for common inspection, preview, and explicit sync workflows.
 
 ```ts
 import { P4Client } from "p4client-ts";
@@ -33,9 +33,9 @@ const opened = await p4.getOpenedFiles({ change: "default" });
 
 `getEnvironment()` and `listWorkspaces()` cache results on the client instance until you call them with `refresh: true`.
 
-## Preview Operations
+## Preview and Sync Operations
 
-The library stays on the safe side of Perforce by focusing on inspection and preview methods.
+The recommended workflow is still preview first, then opt into `sync()` only when you want to apply the same file spec.
 
 ```ts
 const reconcilePreview = await p4.previewReconcile({
@@ -47,12 +47,22 @@ const syncPreview = await p4.previewSync({
   fileSpec: "//Project/main/...",
   force: true
 });
+
+if (syncPreview.totalCount > 0) {
+  const syncResult = await p4.sync({
+    fileSpec: "//Project/main/...",
+    force: true
+  });
+}
 ```
 
-Both helpers use preview-only commands:
+Command mapping:
 
 - `previewReconcile()` runs `p4 reconcile -n`
 - `previewSync()` runs `p4 sync -n`
+- `sync()` runs `p4 sync`
+
+`previewReconcile()` remains preview-only in this version of the library.
 
 ## Next
 

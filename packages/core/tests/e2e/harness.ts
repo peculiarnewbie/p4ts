@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { P4Client } from "../../src/public/client.js";
-import type { P4CommandOptions, P4CommandResult } from "../../src/public/types.js";
+import type { P4CommandOptions, P4CommandResult, SyncOptions } from "../../src/public/types.js";
 import type { E2EConfig } from "./config.js";
 import {
   assertProvisionedSentinels,
@@ -61,6 +61,10 @@ export class P4E2EHarness {
 
   async previewSync() {
     return this.client.previewSync({ fileSpec: "..." });
+  }
+
+  async sync(options: SyncOptions = {}) {
+    return this.client.sync({ fileSpec: "...", ...options });
   }
 
   async assertCleanWorkspace() {

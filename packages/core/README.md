@@ -8,18 +8,19 @@ The published package name is `p4client-ts`.
 - Parse classic tagged output and newline-delimited JSON
 - Query current Perforce environment with sensible fallbacks
 - List and filter workspaces that are relevant to the local machine
-- Provide read-only plus preview-sync helpers for custom P4 tooling
+- Provide preview-first Perforce helpers with opt-in mutating sync support
 - Optional [Effect](https://effect.website)-based service API
 
 ## Scope
 
-This package is intended for read-only and preview-oriented P4 workflows.
+This package is intended for inspection, preview-oriented workflows, and explicit `sync()` operations.
 
 In scope:
 - Inspect current environment and workspace state
 - List relevant workspaces for the current machine
 - Inspect pending changelists and opened files
-- Preview reconcile and sync operations
+- Preview reconcile operations
+- Preview sync operations and apply sync when explicitly requested
 - Read file metadata and depot/local path mappings
 
 Out of scope:
@@ -54,6 +55,12 @@ const reconcilePreview = await p4.previewReconcile({
 const syncPreview = await p4.previewSync({
   fileSpec: "//Project/main/..."
 });
+
+if (syncPreview.totalCount > 0) {
+  const syncResult = await p4.sync({
+    fileSpec: "//Project/main/..."
+  });
+}
 ```
 
 ## Documentation
@@ -86,6 +93,11 @@ const environment = await Effect.runPromise(p4.getP4Environment());
 const workspaces = await Effect.runPromise(p4.listP4Workspaces());
 const opened = await Effect.runPromise(p4.getOpenedFiles({ change: "default" }));
 const reconcilePreview = await Effect.runPromise(p4.previewReconcile());
+const syncPreview = await Effect.runPromise(p4.previewSync({ fileSpec: "//Project/main/..." }));
+
+if (syncPreview.totalCount > 0) {
+  await Effect.runPromise(p4.sync({ fileSpec: "//Project/main/..." }));
+}
 ```
 
 ## Development

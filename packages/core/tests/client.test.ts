@@ -469,4 +469,109 @@ describe("P4Client", () => {
       ["-Mj", "-z", "tag", "sync", "-n", "-f", "//Project/main/..."]
     ]);
   });
+
+  it("passes keepWorkspaceFiles to sync preview", async () => {
+    const calls: string[][] = [];
+    const p4 = new P4Client({
+      executor: createExecutor(async (command, args) => {
+        calls.push(args);
+        return {
+          command,
+          args,
+          stdout: "",
+          stderr: "",
+          exitCode: 0
+        };
+      })
+    });
+
+    await expect(
+      p4.previewSync({ keepWorkspaceFiles: true, fileSpec: "//Project/main/..." })
+    ).resolves.toEqual({
+      items: [],
+      totalCount: 0
+    });
+
+    expect(calls).toEqual([
+      ["-Mj", "-z", "tag", "sync", "-n", "-k", "//Project/main/..."]
+    ]);
+  });
+
+  it("returns sync items with a total count", async () => {
+    const calls: string[][] = [];
+    const p4 = new P4Client({
+      executor: createExecutor(async (command, args) => {
+        calls.push(args);
+        return {
+          command,
+          args,
+          stdout: [
+            "{\"depotFile\":\"//Project/main/foo.txt\",\"clientFile\":\"C:\\\\work\\\\Project_Main\\\\foo.txt\",\"path\":\"C:\\\\work\\\\Project_Main\\\\foo.txt\",\"rev\":\"8\",\"action\":\"refresh\",\"fileSize\":\"128\"}",
+            "{\"depotFile\":\"//Project/main/bar.txt\",\"action\":\"deleted\"}"
+          ].join("\n"),
+          stderr: "",
+          exitCode: 0
+        };
+      })
+    });
+
+    await expect(
+      p4.sync({ force: true, keepWorkspaceFiles: true, fileSpec: "//Project/main/..." })
+    ).resolves.toEqual({
+      items: [
+        {
+          depotFile: "//Project/main/foo.txt",
+          clientFile: "C:\\work\\Project_Main\\foo.txt",
+          localFile: "C:\\work\\Project_Main\\foo.txt",
+          revision: 8,
+          action: "refresh",
+          fileSize: 128
+        },
+        {
+          depotFile: "//Project/main/bar.txt",
+          clientFile: null,
+          localFile: null,
+          revision: null,
+          action: "deleted",
+          fileSize: null
+        }
+      ],
+      totalCount: 2
+    });
+
+    expect(calls).toEqual([
+      ["-Mj", "-z", "tag", "sync", "-f", "-k", "//Project/main/..."]
+    ]);
+  });
+
+  it("returns an empty sync result when Perforce emits no rows", async () => {
+    const p4 = new P4Client({
+      executor: createExecutor(async (command, args) => ({
+        command,
+        args,
+        stdout: "",
+        stderr: "",
+        exitCode: 0
+      }))
+    });
+
+    await expect(p4.sync()).resolves.toEqual({
+      items: [],
+      totalCount: 0
+    });
+  });
+
+  it("throws a typed error when sync exits non-zero", async () => {
+    const p4 = new P4Client({
+      executor: createExecutor(async (command, args) => ({
+        command,
+        args,
+        stdout: "",
+        stderr: "Your session has expired, please login again.",
+        exitCode: 1
+      }))
+    });
+
+    await expect(p4.sync()).rejects.toBeInstanceOf(P4CommandError);
+  });
 });

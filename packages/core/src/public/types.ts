@@ -241,18 +241,31 @@ export interface PreviewSyncOptions {
   fileSpec?: string | string[];
   /** Pass `-f` to force sync preview output. */
   force?: boolean;
-  /** Reserved for future parity with sync behavior. */
+  /** Pass `-k` to preview metadata updates without changing workspace files. */
   keepWorkspaceFiles?: boolean;
   /** Reserved for future client-side limiting. */
   maxFiles?: number | null;
-  /** Reserved for API consistency with other higher-level methods. */
+  /** Reserved for API consistency with other higher-level methods. This is a no-op in v1. */
   refresh?: boolean;
 }
 
 /**
- * Normalized sync preview row.
+ * Options for performing `p4 sync`.
  */
-export interface P4SyncPreviewItem {
+export interface SyncOptions {
+  fileSpec?: string | string[];
+  /** Pass `-f` to force sync output. */
+  force?: boolean;
+  /** Pass `-k` to update workspace metadata without changing workspace files. */
+  keepWorkspaceFiles?: boolean;
+  /** Reserved for API consistency with other higher-level methods. This is a no-op in v1. */
+  refresh?: boolean;
+}
+
+/**
+ * Normalized sync row.
+ */
+export interface P4SyncItem {
   depotFile: string | null;
   clientFile: string | null;
   localFile: string | null;
@@ -262,14 +275,24 @@ export interface P4SyncPreviewItem {
 }
 
 /**
- * Preview result returned by `previewSync()`.
+ * Result returned by `sync()`.
  */
-export interface P4SyncPreviewResult {
-  /** Individual preview rows emitted by Perforce. */
-  items: P4SyncPreviewItem[];
-  /** Total number of preview rows. */
+export interface P4SyncResult {
+  /** Individual sync rows emitted by Perforce. */
+  items: P4SyncItem[];
+  /** Total number of sync rows. */
   totalCount: number;
 }
+
+/**
+ * Normalized sync preview row.
+ */
+export interface P4SyncPreviewItem extends P4SyncItem {}
+
+/**
+ * Preview result returned by `previewSync()`.
+ */
+export interface P4SyncPreviewResult extends P4SyncResult {}
 
 /**
  * Compound shape containing the current environment and listed workspaces.
@@ -301,4 +324,7 @@ export interface P4Service {
   previewSync: (
     options?: PreviewSyncOptions
   ) => import("effect").Effect.Effect<P4SyncPreviewResult, Error>;
+  sync: (
+    options?: SyncOptions
+  ) => import("effect").Effect.Effect<P4SyncResult, Error>;
 }

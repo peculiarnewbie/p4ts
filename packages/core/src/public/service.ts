@@ -5,7 +5,7 @@ import type { P4ClientOptions, P4Service } from "./types.js";
 /**
  * Create an Effect-friendly wrapper around {@link P4Client}.
  *
- * The returned service exposes the same read-only and preview-oriented
+ * The returned service exposes the same typed inspection, preview, and sync
  * operations as `P4Client`, but each operation resolves to an `Effect`.
  */
 export function createP4Service(options: P4ClientOptions = {}): P4Service {
@@ -25,7 +25,9 @@ export function createP4Service(options: P4ClientOptions = {}): P4Service {
     previewReconcile: (serviceOptions) =>
       Effect.promise(() => client.previewReconcile(serviceOptions)),
     previewSync: (serviceOptions) =>
-      Effect.promise(() => client.previewSync(serviceOptions))
+      Effect.promise(() => client.previewSync(serviceOptions)),
+    sync: (serviceOptions) =>
+      Effect.promise(() => client.sync(serviceOptions))
   };
 }
 
@@ -81,4 +83,13 @@ export function previewReconcile(options?: Parameters<P4Service["previewReconcil
  */
 export function previewSync(options?: Parameters<P4Service["previewSync"]>[0]) {
   return defaultService.previewSync(options);
+}
+
+/**
+ * Perform sync using the default Effect service.
+ *
+ * Call {@link previewSync} first when you want a preview-first workflow.
+ */
+export function sync(options?: Parameters<P4Service["sync"]>[0]) {
+  return defaultService.sync(options);
 }

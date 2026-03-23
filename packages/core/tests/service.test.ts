@@ -180,5 +180,19 @@ describe("createP4Service", () => {
       ],
       totalCount: 1
     });
+
+    await expect(Effect.runPromise(service.sync())).resolves.toEqual({
+      items: [
+        {
+          depotFile: "//Project/main/foo.txt",
+          clientFile: null,
+          localFile: null,
+          revision: 9,
+          action: "refresh",
+          fileSize: 256
+        }
+      ],
+      totalCount: 1
+    });
   });
 });

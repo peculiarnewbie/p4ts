@@ -23,20 +23,23 @@ import type {
   P4OpenedFileSummary,
   P4ReconcileCandidate,
   P4ReconcilePreviewResult,
+  P4SyncItem,
+  P4SyncResult,
   P4SyncPreviewItem,
   P4SyncPreviewResult,
   P4WorkspaceSummary,
   PreviewReconcileOptions,
   PreviewSyncOptions,
+  SyncOptions,
   RunTaggedJsonOptions
 } from "./types.js";
 
 /**
  * Thin, typed wrapper around the Perforce `p4` CLI.
  *
- * `P4Client` focuses on read-only inspection plus preview-style workflows such
- * as `sync -n` and `reconcile -n`. The instance caches environment and workspace
- * lookups unless a method is called with `refresh: true`.
+ * `P4Client` focuses on typed Perforce inspection and preview-first workflows,
+ * with opt-in mutating sync support. The instance caches environment and
+ * workspace lookups unless a method is called with `refresh: true`.
  */
 export class P4Client {
   readonly executable: string;
@@ -341,19 +344,25 @@ export class P4Client {
    * mirrors the number of preview rows emitted by Perforce.
    */
   async previewSync(options: PreviewSyncOptions = {}): Promise<P4SyncPreviewResult> {
-    const commandArgs = ["sync", "-n"];
-    if (options.force) {
-      commandArgs.push("-f");
-    }
-    this.appendFileSpecs(commandArgs, options.fileSpec);
+    const rows = await this.runTaggedJson<Record<string, unknown>>(
+      this.getSyncCommandArgs(options, true)
+    );
 
-    const rows = await this.runTaggedJson<Record<string, unknown>>(commandArgs);
-    const items = rows.map((row) => this.toSyncPreviewItem(row));
+    return this.toSyncResult(rows);
+  }
 
-    return {
-      items,
-      totalCount: items.length
-    };
+  /**
+   * Perform `p4 sync`.
+   *
+   * Callers should typically use {@link previewSync} first to inspect pending
+   * work, then call this method to apply the same file spec and flags.
+   */
+  async sync(options: SyncOptions = {}): Promise<P4SyncResult> {
+    const rows = await this.runTaggedJson<Record<string, unknown>>(
+      this.getSyncCommandArgs(options, false)
+    );
+
+    return this.toSyncResult(rows);
   }
 
   private toWorkspaceSummary(
@@ -432,7 +441,34 @@ export class P4Client {
     };
   }
 
-  private toSyncPreviewItem(row: Record<string, unknown>): P4SyncPreviewItem {
+  private getSyncCommandArgs(
+    options: Pick<PreviewSyncOptions, "fileSpec" | "force" | "keepWorkspaceFiles">,
+    preview: boolean
+  ): string[] {
+    const commandArgs = ["sync"];
+    if (preview) {
+      commandArgs.push("-n");
+    }
+    if (options.force) {
+      commandArgs.push("-f");
+    }
+    if (options.keepWorkspaceFiles) {
+      commandArgs.push("-k");
+    }
+    this.appendFileSpecs(commandArgs, options.fileSpec);
+    return commandArgs;
+  }
+
+  private toSyncResult(rows: Record<string, unknown>[]): P4SyncResult {
+    const items = rows.map((row) => this.toSyncItem(row));
+
+    return {
+      items,
+      totalCount: items.length
+    };
+  }
+
+  private toSyncItem(row: Record<string, unknown>): P4SyncItem {
     return {
       depotFile: normalizeNullableString(row.depotFile),
       clientFile: normalizeNullableString(row.clientFile),

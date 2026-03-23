@@ -6,13 +6,14 @@ The published package name is `p4client-ts`.
 
 ## Scope
 
-`p4-ts` is intended to be a read-only plus preview-first foundation for custom P4 tooling.
+`p4-ts` is intended to be a preview-first foundation for custom P4 tooling, with opt-in mutating sync support.
 
 In scope:
 - Inspect current P4 environment and workspace state
 - List local or relevant workspaces
 - Inspect pending changelists and opened files
-- Preview reconcile and sync operations
+- Preview reconcile operations
+- Preview sync operations and apply sync when the caller explicitly opts in
 - Read file metadata and depot/local path mappings
 
 Out of scope:
@@ -23,6 +24,8 @@ Out of scope:
 - Changelist creation or mutation
 - Client, stream, or other spec mutation
 - Server administration or any workflow that mutates server-side state
+
+`sync()` is the only mutating workflow currently exposed, and the recommended pattern is still `previewSync()` first, then `sync()`.
 
 ## Packages
 
