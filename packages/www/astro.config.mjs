@@ -3,6 +3,7 @@ import starlight from "@astrojs/starlight";
 import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
 
 export default defineConfig({
+  site: "https://p4client-ts.peculiarnewbie.com",
   integrations: [
     starlight({
       title: "p4-ts",
@@ -11,7 +12,7 @@ export default defineConfig({
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/peculiarnewbie/p4-ts"
+          href: "https://github.com/peculiarnewbie/p4client-ts"
         }
       ],
       sidebar: [

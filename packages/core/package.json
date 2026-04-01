@@ -1,6 +1,6 @@
 {
   "name": "p4client-ts",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Typed TypeScript helpers for the Perforce p4 CLI",
   "license": "MIT",
   "author": "peculiarnewbie",
@@ -14,13 +14,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/peculiarnewbie/p4-ts.git",
+    "url": "https://github.com/peculiarnewbie/p4client-ts.git",
     "directory": "packages/core"
   },
   "bugs": {
-    "url": "https://github.com/peculiarnewbie/p4-ts/issues"
+    "url": "https://github.com/peculiarnewbie/p4client-ts/issues"
   },
-  "homepage": "https://github.com/peculiarnewbie/p4-ts#readme",
+  "homepage": "https://github.com/peculiarnewbie/p4client-ts#readme",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
