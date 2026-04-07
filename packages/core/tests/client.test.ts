@@ -107,6 +107,88 @@ describe("P4Client", () => {
     }
   });
 
+  it("supports local environment mode without contacting the server", async () => {
+    const calls: string[][] = [];
+    const p4 = new P4Client({
+      executor: createExecutor(async (command, args) => {
+        calls.push(args);
+
+        if (args[0] !== "set") {
+          throw new Error(`Unexpected command: ${args.join(" ")}`);
+        }
+
+        return {
+          command,
+          args,
+          stdout: [
+            "P4PORT=ssl:perforce.example.com:1666",
+            "P4USER=surya",
+            "P4CLIENT=Project_Main"
+          ].join("\n"),
+          stderr: "",
+          exitCode: 0
+        };
+      })
+    });
+
+    const environment = await p4.getEnvironment({ mode: "local" });
+
+    expect(environment.hostName).toEqual(expect.any(String));
+    expect(environment).toMatchObject({
+      p4Port: "ssl:perforce.example.com:1666",
+      p4User: "surya",
+      p4Client: "Project_Main"
+    });
+
+    expect(calls).toEqual([["set", "-q"]]);
+  });
+
+  it("can enrich server environment results with locally resolved settings", async () => {
+    const calls: string[][] = [];
+    const p4 = new P4Client({
+      executor: createExecutor(async (command, args) => {
+        calls.push(args);
+
+        if (args[0] === "set") {
+          return {
+            command,
+            args,
+            stdout: [
+              "P4PORT=ssl:configured.example.com:1666",
+              "P4CLIENT=Configured_Client"
+            ].join("\n"),
+            stderr: "",
+            exitCode: 0
+          };
+        }
+
+        return {
+          command,
+          args,
+          stdout: [
+            "User name: surya",
+            "Client host: DESKTOP-WORK-ARIF",
+            "Server address: perforce.internal:1666"
+          ].join("\n"),
+          stderr: "",
+          exitCode: 0
+        };
+      })
+    });
+
+    await expect(p4.getEnvironment({ resolveSettings: true })).resolves.toEqual({
+      hostName: "DESKTOP-WORK-ARIF",
+      p4Port: "ssl:configured.example.com:1666",
+      p4User: "surya",
+      p4Client: "Configured_Client"
+    });
+
+    expect(calls).toEqual([
+      ["set", "-q"],
+      ["info"]
+    ]);
+  });
+
   it("lists only workspaces whose host matches the current machine", async () => {
     const calls: string[][] = [];
     const p4 = new P4Client({
@@ -189,6 +271,26 @@ describe("P4Client", () => {
     await expect(p4.run(["changes"], { allowNonZeroExit: true })).resolves.toMatchObject({
       exitCode: 1
     });
+  });
+
+  it("passes the configured default timeout to raw command execution", async () => {
+    let capturedTimeout: number | undefined;
+    const p4 = new P4Client({
+      timeoutMs: 1500,
+      executor: createExecutor(async (command, args, options) => {
+        capturedTimeout = options.timeoutMs;
+        return {
+          command,
+          args,
+          stdout: "",
+          stderr: "",
+          exitCode: 0
+        };
+      })
+    });
+
+    await p4.run(["info"]);
+    expect(capturedTimeout).toBe(1500);
   });
 
   it("lists pending changelists and synthesizes the default changelist when needed", async () => {

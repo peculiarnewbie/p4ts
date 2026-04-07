@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { runCommand, watchCommand } from "../src/internal/command.js";
+import { P4TimeoutError } from "../src/public/errors.js";
 
 const inlineScript = [
   "process.stdout.write('out-1 pa');",
@@ -42,5 +43,30 @@ describe("command streaming", () => {
         stderr: "",
         exitCode: 0
       });
+  });
+
+  it("kills timed out commands and throws a typed timeout error", async () => {
+    await expect(
+      runCommand(process.execPath, ["-e", "setTimeout(() => process.stdout.write('late'), 200)"], {
+        timeoutMs: 25
+      })
+    ).rejects.toBeInstanceOf(P4TimeoutError);
+  });
+
+  it("fails watched commands with the same timeout error surface", async () => {
+    const handle = watchCommand(process.execPath, ["-e", "setTimeout(() => {}, 200)"], {
+      timeoutMs: 25
+    });
+
+    await expect(handle.result).rejects.toBeInstanceOf(P4TimeoutError);
+
+    try {
+      for await (const _event of handle.events) {
+        void _event;
+      }
+      throw new Error("expected timeout while consuming events");
+    } catch (error) {
+      expect(error).toBeInstanceOf(P4TimeoutError);
+    }
   });
 });

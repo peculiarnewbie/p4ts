@@ -44,6 +44,16 @@ const categoryPatterns: readonly { category: P4ErrorCategory; pattern: RegExp }[
   { category: "client", pattern: /has not been set/i },
 ];
 
+const connectionErrorPatterns: readonly RegExp[] = [
+  /connect to server failed/i,
+  /check \$?P4PORT/i,
+  /tcp connect to .+ failed/i,
+  /no such host/i,
+  /connection refused/i,
+  /network is unreachable/i,
+  /wsaetimedout/i
+];
+
 /**
  * Classify a Perforce command failure from combined stderr/stdout text.
  *
@@ -59,6 +69,20 @@ export function classifyP4Error(text: string): P4ErrorCategory {
     }
   }
   return "command";
+}
+
+/**
+ * Conservative classifier for failures that indicate an unreachable Perforce
+ * server or invalid connection endpoint.
+ */
+export function isP4ConnectionError(error: unknown): boolean {
+  const text = error instanceof P4CommandError
+    ? [error.message, error.result.stderr, error.result.stdout].filter(Boolean).join("\n")
+    : error instanceof Error
+      ? error.message
+      : String(error);
+
+  return connectionErrorPatterns.some((pattern) => pattern.test(text));
 }
 
 /**
@@ -90,5 +114,41 @@ export class P4CommandError extends Error {
     this.name = "P4CommandError";
     this.result = result;
     this.category = category ?? classifyP4Error(message);
+  }
+}
+
+/**
+ * Error thrown when a child `p4` process exceeds a configured timeout.
+ */
+export class P4TimeoutError extends Error {
+  readonly command: string;
+  readonly args: string[];
+  readonly timeoutMs: number;
+  readonly stdout: string;
+  readonly stderr: string;
+
+  /**
+   * Create a typed timeout error for a killed Perforce subprocess.
+   *
+   * @param command Executable that was invoked.
+   * @param args Final argument vector passed to the command.
+   * @param timeoutMs Timeout in milliseconds that was exceeded.
+   * @param stdout Partial stdout captured before termination.
+   * @param stderr Partial stderr captured before termination.
+   */
+  constructor(
+    command: string,
+    args: string[],
+    timeoutMs: number,
+    stdout = "",
+    stderr = ""
+  ) {
+    super(`${command} ${args.join(" ")} timed out after ${timeoutMs}ms.`);
+    this.name = "P4TimeoutError";
+    this.command = command;
+    this.args = args;
+    this.timeoutMs = timeoutMs;
+    this.stdout = stdout;
+    this.stderr = stderr;
   }
 }

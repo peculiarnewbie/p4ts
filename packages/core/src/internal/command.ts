@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { P4TimeoutError } from "../public/errors.js";
 import type {
   P4CommandOptions,
   P4CommandResult,
@@ -129,11 +130,41 @@ export function watchCommand(
     let stderr = "";
     let stdoutCarry = "";
     let stderrCarry = "";
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
 
     queue.push({ type: "start", command, args });
+
+    const clearCommandTimeout = () => {
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+    };
+
+    const rejectOnce = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearCommandTimeout();
+      queue.fail(error);
+      reject(error);
+    };
+
+    const resolveOnce = (resultValue: P4CommandResult) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearCommandTimeout();
+      resolve(resultValue);
+    };
 
     child.stdout.on("data", (chunk: string) => {
       stdout += chunk;
@@ -150,11 +181,14 @@ export function watchCommand(
     });
 
     child.on("error", (error) => {
-      queue.fail(error);
-      reject(error);
+      rejectOnce(error);
     });
 
     child.on("close", (exitCode) => {
+      if (settled) {
+        return;
+      }
+
       if (stdoutCarry.length > 0) {
         queue.push({ type: "line", source: "stdout", line: stdoutCarry });
       }
@@ -164,8 +198,7 @@ export function watchCommand(
 
       queue.push({ type: "exit", exitCode: exitCode ?? 1 });
       queue.finish();
-
-      resolve({
+      resolveOnce({
         command,
         args,
         stdout,
@@ -173,6 +206,14 @@ export function watchCommand(
         exitCode: exitCode ?? 1
       });
     });
+
+    if (options.timeoutMs !== undefined) {
+      timeout = setTimeout(() => {
+        const timeoutError = new P4TimeoutError(command, args, options.timeoutMs!, stdout, stderr);
+        child.kill();
+        rejectOnce(timeoutError);
+      }, options.timeoutMs);
+    }
 
     if (options.input) {
       child.stdin.write(options.input);

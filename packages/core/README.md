@@ -7,8 +7,10 @@ The published package name is `p4client-ts`.
 - Run `p4` with a testable client abstraction
 - Parse classic tagged output and newline-delimited JSON
 - Query current Perforce environment with sensible fallbacks
+- Resolve local Perforce settings from `p4 set`, P4V, and the Windows registry
 - List and filter workspaces that are relevant to the local machine
 - Provide preview-first Perforce helpers with opt-in mutating sync support
+- Apply command timeouts across raw and higher-level APIs
 - Optional [Effect](https://effect.website)-based service API
 
 ## Scope
@@ -46,6 +48,7 @@ import { P4Client } from "p4client-ts";
 const p4 = new P4Client();
 
 const environment = await p4.getEnvironment();
+const localEnvironment = await p4.getEnvironment({ mode: "local" });
 const workspaces = await p4.listWorkspaces();
 const pending = await p4.listPendingChangelists();
 const opened = await p4.getOpenedFiles({ change: "default" });
@@ -73,6 +76,50 @@ for await (const event of reconcileOperation.events) {
 }
 
 const reconcileWithProgress = await reconcileOperation.result;
+```
+
+## Local Settings Resolution
+
+`resolveP4Settings()` resolves `P4PORT`, `P4USER`, and `P4CLIENT` from local
+sources without contacting the server:
+
+```ts
+import {
+  resolveP4Settings,
+  resolveP4SettingsWithDetails
+} from "p4client-ts";
+
+const settings = await resolveP4Settings(
+  { P4CLIENT: "Project_Main" },
+  {
+    sources: ["p4v-app-settings", "p4v-connection-map", "cli", "registry"]
+  }
+);
+
+const detailed = await resolveP4SettingsWithDetails({}, {
+  sources: ["cli", "registry"]
+});
+```
+
+`getEnvironment({ mode: "local" })` uses the same resolver and skips `p4 info`.
+
+## Timeouts
+
+Set `timeoutMs` on `P4Client` to apply a process timeout to raw commands and
+higher-level helpers:
+
+```ts
+import { P4Client, P4TimeoutError } from "p4client-ts";
+
+const p4 = new P4Client({ timeoutMs: 1500 });
+
+try {
+  await p4.previewSync({ fileSpec: "//Project/main/..." });
+} catch (error) {
+  if (error instanceof P4TimeoutError) {
+    console.error(error.timeoutMs);
+  }
+}
 ```
 
 ## Documentation

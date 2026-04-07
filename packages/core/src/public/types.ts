@@ -58,6 +58,8 @@ export interface P4CommandOptions {
   env?: NodeJS.ProcessEnv;
   /** Optional stdin content written to the child process. */
   input?: string;
+  /** Kill the child process when it exceeds this duration in milliseconds. */
+  timeoutMs?: number;
   /** Allow non-zero exits to be returned instead of throwing. */
   allowNonZeroExit?: boolean;
 }
@@ -97,10 +99,65 @@ export interface P4ClientOptions {
   env?: NodeJS.ProcessEnv;
   /** Override the host name used for local-workspace detection. */
   hostName?: string;
+  /** Default timeout applied to raw and higher-level command execution. */
+  timeoutMs?: number;
   /** Injectable command executor for tests or custom process handling. */
   executor?: P4CommandExecutor;
   /** Injectable streaming executor for progress-aware APIs and tests. */
   streamExecutor?: P4StreamingCommandExecutor;
+}
+
+/**
+ * Known Perforce CLI settings used for connection and workspace selection.
+ */
+export interface P4CliSettings {
+  P4PORT?: string;
+  P4USER?: string;
+  P4CLIENT?: string;
+}
+
+/**
+ * Individual Perforce setting keys tracked by the local resolver.
+ */
+export type P4SettingKey = "P4PORT" | "P4USER" | "P4CLIENT";
+
+/**
+ * Named local configuration sources that can contribute Perforce settings.
+ */
+export type P4SettingsSource =
+  | "p4v-app-settings"
+  | "p4v-connection-map"
+  | "cli"
+  | "registry";
+
+/**
+ * Provenance entry describing which keys came from a local settings source.
+ */
+export interface P4SettingsContribution {
+  source: P4SettingsSource;
+  keys: P4SettingKey[];
+}
+
+/**
+ * Final local settings plus provenance for each contributing source.
+ */
+export interface P4ResolvedSettings {
+  settings: P4CliSettings;
+  contributions: P4SettingsContribution[];
+}
+
+/**
+ * Options for local settings resolution.
+ */
+export interface ResolveP4SettingsOptions {
+  /** Ordered source precedence. Later sources only fill missing keys. */
+  sources?: P4SettingsSource[];
+  /** Override registry reads for tests or custom hosts. */
+  readRegistry?: () => Promise<P4CliSettings>;
+  /** Override `~/.p4qt/ApplicationSettings.xml` reads. */
+  readP4vAppSettings?: () => Promise<P4CliSettings>;
+  /** Override `~/.p4qt/connectionmap.xml` reads. */
+  readP4vConnectionMap?: () => Promise<P4CliSettings>;
 }
 
 /**
@@ -115,6 +172,23 @@ export interface P4EnvironmentSummary {
   p4User: string | null;
   /** Active `P4CLIENT` value, if known. */
   p4Client: string | null;
+}
+
+/**
+ * Options for resolving the current Perforce environment.
+ */
+export interface GetEnvironmentOptions {
+  /** Ignore cached values and re-read the underlying sources. */
+  refresh?: boolean;
+  /** Resolve from the server or from local settings only. Defaults to `server`. */
+  mode?: "server" | "local";
+  /**
+   * In `server` mode, also resolve local settings and use them to fill gaps or
+   * prefer the configured `P4PORT` over the resolved server address.
+   */
+  resolveSettings?: boolean;
+  /** Source precedence used when local settings are resolved. */
+  settingsSources?: P4SettingsSource[];
 }
 
 /**
@@ -374,7 +448,9 @@ export interface P4ListWorkspaceResult {
  * Effect-based wrapper over the `P4Client` operations.
  */
 export interface P4Service {
-  getP4Environment: (refresh?: boolean) => import("effect").Effect.Effect<P4EnvironmentSummary, Error>;
+  getP4Environment: (
+    options?: boolean | GetEnvironmentOptions
+  ) => import("effect").Effect.Effect<P4EnvironmentSummary, Error>;
   listP4Workspaces: (refresh?: boolean) => import("effect").Effect.Effect<P4WorkspaceSummary[], Error>;
   listPendingChangelists: (
     options?: ListPendingChangelistsOptions

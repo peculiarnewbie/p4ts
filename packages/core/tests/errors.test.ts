@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { P4Client } from "../src/public/client.js";
-import { P4CommandError, classifyP4Error } from "../src/public/errors.js";
+import {
+  P4CommandError,
+  P4TimeoutError,
+  classifyP4Error,
+  isP4ConnectionError
+} from "../src/public/errors.js";
 import type { P4CommandExecutor, P4ErrorCategory } from "../src/public/index.js";
 
 function createExecutor(resolver: P4CommandExecutor): P4CommandExecutor {
@@ -97,6 +102,38 @@ describe("P4CommandError", () => {
     expect(error.result.args).toEqual(result.args);
     expect(error.result.exitCode).toBe(1);
     expect(error.result.stderr).toContain("perforce-main:1666");
+  });
+});
+
+describe("P4TimeoutError", () => {
+  it("preserves timeout metadata and partial output", () => {
+    const error = new P4TimeoutError("p4", ["info"], 1500, "partial out", "partial err");
+
+    expect(error.name).toBe("P4TimeoutError");
+    expect(error.message).toContain("timed out after 1500ms");
+    expect(error.command).toBe("p4");
+    expect(error.args).toEqual(["info"]);
+    expect(error.timeoutMs).toBe(1500);
+    expect(error.stdout).toBe("partial out");
+    expect(error.stderr).toBe("partial err");
+  });
+});
+
+describe("isP4ConnectionError", () => {
+  it("matches unreachable-server style failures without treating auth failures as connection errors", () => {
+    expect(isP4ConnectionError(new Error([
+      "Perforce client error:",
+      "\tConnect to server failed; check $P4PORT.",
+      "\tTCP connect to perforce-main:1666 failed.",
+      "\tNo such host is known."
+    ].join("\n")))).toBe(true);
+
+    expect(isP4ConnectionError(new Error(
+      "Perforce client error:\n\tConnect to server failed; check $P4PORT.\n\tconnect: 8.215.30.90:1666: WSAETIMEDOUT"
+    ))).toBe(true);
+
+    expect(isP4ConnectionError(new Error("Your session has expired, please login again."))).toBe(false);
+    expect(isP4ConnectionError(new P4TimeoutError("p4", ["info"], 1500))).toBe(false);
   });
 });
 

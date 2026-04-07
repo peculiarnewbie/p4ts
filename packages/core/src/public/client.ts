@@ -11,10 +11,17 @@ import {
   parseP4KeyValueOutput,
   unixSecondsToIsoString
 } from "./helpers.js";
+import {
+  mergeIncompleteSettings,
+  parseP4SetOutput,
+  resolveP4SettingsWithDetails
+} from "./settings.js";
 import type {
+  GetEnvironmentOptions,
   GetOpenedFilesOptions,
   ListWorkspacesOptions,
   ListPendingChangelistsOptions,
+  P4CliSettings,
   P4PendingChangelistSummary,
   P4ClientOptions,
   P4CommandOptions,
@@ -25,8 +32,10 @@ import type {
   P4EnvironmentSummary,
   P4JsonWorkspace,
   P4OpenedFileSummary,
+  P4ResolvedSettings,
   P4ReconcileCandidate,
   P4ReconcilePreviewResult,
+  P4SettingsSource,
   P4SyncItem,
   P4SyncResult,
   P4SyncPreviewItem,
@@ -50,12 +59,15 @@ export class P4Client {
   readonly executable: string;
   readonly cwd: string | undefined;
   readonly env: NodeJS.ProcessEnv | undefined;
+  readonly timeoutMs: number | undefined;
 
   private readonly executor;
   private readonly streamExecutor;
   private readonly configuredHostName;
   private cachedEnvironment: P4EnvironmentSummary | null = null;
   private cachedWorkspaces: P4WorkspaceSummary[] | null = null;
+  private cachedLocalEnvironment: { cacheKey: string; environment: P4EnvironmentSummary } | null = null;
+  private cachedResolvedSettings: { cacheKey: string; resolved: P4ResolvedSettings } | null = null;
 
   /**
    * Create a reusable Perforce client.
@@ -67,6 +79,7 @@ export class P4Client {
     this.executable = options.executable ?? "p4";
     this.cwd = options.cwd;
     this.env = options.env;
+    this.timeoutMs = options.timeoutMs;
     this.configuredHostName = options.hostName;
     this.executor = options.executor ?? runCommand;
     this.streamExecutor = options.streamExecutor ?? watchCommand;
@@ -140,11 +153,19 @@ export class P4Client {
    *
    * Results are cached per client instance unless `refresh` is requested.
    */
-  async getEnvironment(options: { refresh?: boolean } = {}): Promise<P4EnvironmentSummary> {
-    if (!options.refresh && this.cachedEnvironment) {
+  async getEnvironment(options: GetEnvironmentOptions = {}): Promise<P4EnvironmentSummary> {
+    if (options.mode === "local") {
+      return this.getLocalEnvironment(options);
+    }
+
+    const shouldResolveSettings = options.resolveSettings === true || options.settingsSources !== undefined;
+    if (!options.refresh && !shouldResolveSettings && this.cachedEnvironment) {
       return this.cachedEnvironment;
     }
 
+    const resolvedSettings = shouldResolveSettings
+      ? await this.resolveLocalSettings(options)
+      : null;
     const result = await this.run(["info"]);
     const info = parseP4KeyValueOutput(result.stdout);
 
@@ -157,15 +178,18 @@ export class P4Client {
       // "Server address" from p4 info is the resolved internal address which
       // may not be reachable from the client (e.g. behind a proxy or using
       // SSL).  The configured P4PORT is what actually works for connections.
-      p4Port: effectiveEnv.P4PORT ?? info["Server address"] ?? null,
+      p4Port: resolvedSettings?.settings.P4PORT ?? effectiveEnv.P4PORT ?? info["Server address"] ?? null,
       // "User name" and "Client name" from p4 info are authoritative — the
       // server resolved them from tickets, env, and client specs.  Env vars
       // are only a last-resort fallback when the server doesn't report them.
-      p4User: info["User name"] ?? effectiveEnv.P4USER ?? null,
-      p4Client: info["Client name"] ?? effectiveEnv.P4CLIENT ?? null
+      p4User: info["User name"] ?? resolvedSettings?.settings.P4USER ?? effectiveEnv.P4USER ?? null,
+      p4Client: info["Client name"] ?? resolvedSettings?.settings.P4CLIENT ?? effectiveEnv.P4CLIENT ?? null
     };
 
-    this.cachedEnvironment = environment;
+    if (!shouldResolveSettings) {
+      this.cachedEnvironment = environment;
+    }
+
     return environment;
   }
 
@@ -641,11 +665,89 @@ export class P4Client {
       commandOptions.input = options.input;
     }
 
+    const timeoutMs = options.timeoutMs ?? this.timeoutMs;
+    if (timeoutMs !== undefined) {
+      commandOptions.timeoutMs = timeoutMs;
+    }
+
     if (options.allowNonZeroExit !== undefined) {
       commandOptions.allowNonZeroExit = options.allowNonZeroExit;
     }
 
     return commandOptions;
+  }
+
+  private async getLocalEnvironment(options: GetEnvironmentOptions): Promise<P4EnvironmentSummary> {
+    const cacheKey = this.getSettingsCacheKey(options.settingsSources);
+    if (!options.refresh && this.cachedLocalEnvironment?.cacheKey === cacheKey) {
+      return this.cachedLocalEnvironment.environment;
+    }
+
+    const resolved = await this.resolveLocalSettings(options);
+    const environment: P4EnvironmentSummary = {
+      hostName: this.configuredHostName ?? getHostName(),
+      p4Port: resolved.settings.P4PORT ?? null,
+      p4User: resolved.settings.P4USER ?? null,
+      p4Client: resolved.settings.P4CLIENT ?? null
+    };
+
+    this.cachedLocalEnvironment = { cacheKey, environment };
+    return environment;
+  }
+
+  private async resolveLocalSettings(
+    options: Pick<GetEnvironmentOptions, "refresh" | "settingsSources">
+  ): Promise<P4ResolvedSettings> {
+    const cacheKey = this.getSettingsCacheKey(options.settingsSources);
+    if (!options.refresh && this.cachedResolvedSettings?.cacheKey === cacheKey) {
+      return this.cachedResolvedSettings.resolved;
+    }
+
+    const cliSettings = await this.readCliSettings(options.settingsSources);
+    const resolveOptions = options.settingsSources !== undefined
+      ? { sources: options.settingsSources }
+      : {};
+    const resolved = await resolveP4SettingsWithDetails(cliSettings, resolveOptions);
+
+    this.cachedResolvedSettings = { cacheKey, resolved };
+    return resolved;
+  }
+
+  private async readCliSettings(sources?: P4SettingsSource[]): Promise<P4CliSettings> {
+    if (sources && !sources.includes("cli")) {
+      return {};
+    }
+
+    const effectiveEnvSettings = this.getEffectiveCliSettings();
+
+    try {
+      const result = await this.run(["set", "-q"], { allowNonZeroExit: true });
+      const cliSettings = result.exitCode === 0 ? parseP4SetOutput(result.stdout) : {};
+      return mergeIncompleteSettings(effectiveEnvSettings, cliSettings);
+    } catch {
+      return effectiveEnvSettings;
+    }
+  }
+
+  private getEffectiveCliSettings(): P4CliSettings {
+    const effectiveEnv = { ...process.env, ...this.env };
+    const settings: P4CliSettings = {};
+
+    if (effectiveEnv.P4PORT) {
+      settings.P4PORT = effectiveEnv.P4PORT;
+    }
+    if (effectiveEnv.P4USER) {
+      settings.P4USER = effectiveEnv.P4USER;
+    }
+    if (effectiveEnv.P4CLIENT) {
+      settings.P4CLIENT = effectiveEnv.P4CLIENT;
+    }
+
+    return settings;
+  }
+
+  private getSettingsCacheKey(sources?: P4SettingsSource[]): string {
+    return sources?.join("|") ?? "__default__";
   }
 
   private toCommandError(args: string[], result: P4CommandResult): P4CommandError {

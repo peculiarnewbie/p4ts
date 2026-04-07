@@ -264,4 +264,35 @@ describe("createP4Service", () => {
       }
     ]);
   });
+
+  it("passes structured environment options through the Effect service", async () => {
+    const calls: string[][] = [];
+    const service = createP4Service({
+      executor: async (command, args) => {
+        calls.push(args);
+
+        return {
+          command,
+          args,
+          stdout: [
+            "P4PORT=ssl:perforce.example.com:1666",
+            "P4USER=surya",
+            "P4CLIENT=Project_Main"
+          ].join("\n"),
+          stderr: "",
+          exitCode: 0
+        };
+      }
+    });
+
+    await expect(
+      Effect.runPromise(service.getP4Environment({ mode: "local" }))
+    ).resolves.toMatchObject({
+      p4Port: "ssl:perforce.example.com:1666",
+      p4User: "surya",
+      p4Client: "Project_Main"
+    });
+
+    expect(calls).toEqual([["set", "-q"]]);
+  });
 });
